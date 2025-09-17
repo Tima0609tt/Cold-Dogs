@@ -28,6 +28,17 @@ body {
     overflow-x: hidden;
 }
 
+/* Простая иконка сайта */
+body::before {
+    content: "🎯";
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    font-size: 20px;
+    z-index: 9999;
+    display: none;
+}
+
 .container {
     max-width: 1200px;
     margin: 0 auto;

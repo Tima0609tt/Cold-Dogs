@@ -1,7 +1,7 @@
 {
-  "name": "cold-dogs-website",
+  "name": "cold-scripts-website",
   "version": "1.0.0",
-  "description": "Cold Dogs - Премиум оружие и аксессуары",
+  "description": "Cold Scripts - Премиум скрипты и аксессуары",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -19,7 +19,7 @@
     "nodemon": "^3.0.1"
   },
   "keywords": ["gaming", "weapons", "accessories"],
-  "author": "Cold Dogs",
+  "author": "Cold Scripts",
   "license": "MIT"
 }
 

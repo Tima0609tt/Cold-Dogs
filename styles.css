@@ -723,6 +723,12 @@ body::before {
 }
 
 /* Navigation Auth Buttons */
+.nav-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
 .nav-auth-btn, .nav-register-btn {
     background: transparent;
     border: 2px solid var(--text-light);
@@ -733,7 +739,6 @@ body::before {
     font-size: 0.9rem;
     font-weight: 500;
     transition: all 0.3s ease;
-    margin-left: 0.5rem;
 }
 
 .nav-auth-btn:hover, .nav-register-btn:hover {

@@ -93,21 +93,42 @@ if (contactFormEl) contactFormEl.addEventListener('submit', function(e) {
 // =====================
 // Auth Modal Logic
 // =====================
-const authModal = document.getElementById('authModal');
-const openLoginBtn = document.getElementById('openLoginBtn');
-const openRegisterBtn = document.getElementById('openRegisterBtn');
-const authCloseBtn = document.getElementById('authCloseBtn');
-const authTitle = document.getElementById('authTitle');
-const authForm = document.getElementById('authForm');
-const authSubmitBtn = document.getElementById('authSubmitBtn');
-const switchToLogin = document.getElementById('switchToLogin');
-const authSwitchText = document.getElementById('authSwitchText');
-
+let authModal, openLoginBtn, openRegisterBtn, authCloseBtn, authTitle, authForm, authSubmitBtn, switchToLogin, authSwitchText;
 let isLoginMode = false;
 
+function initializeAuthModal() {
+    console.log('Initializing auth modal elements...');
+    authModal = document.getElementById('authModal');
+    openLoginBtn = document.getElementById('openLoginBtn');
+    openRegisterBtn = document.getElementById('openRegisterBtn');
+    authCloseBtn = document.getElementById('authCloseBtn');
+    authTitle = document.getElementById('authTitle');
+    authForm = document.getElementById('authForm');
+    authSubmitBtn = document.getElementById('authSubmitBtn');
+    switchToLogin = document.getElementById('switchToLogin');
+    authSwitchText = document.getElementById('authSwitchText');
+
+    console.log('Auth elements found:', {
+        authModal: !!authModal,
+        openLoginBtn: !!openLoginBtn,
+        openRegisterBtn: !!openRegisterBtn,
+        authCloseBtn: !!authCloseBtn,
+        authTitle: !!authTitle,
+        authForm: !!authForm,
+        authSubmitBtn: !!authSubmitBtn,
+        switchToLogin: !!switchToLogin,
+        authSwitchText: !!authSwitchText
+    });
+}
+
 function openAuthModal(loginMode = false) {
+    console.log('openAuthModal called with loginMode:', loginMode);
     isLoginMode = loginMode;
-    if (!authModal) return;
+    if (!authModal) {
+        console.log('authModal not found!');
+        return;
+    }
+    console.log('Opening auth modal');
     authModal.style.display = 'block';
     if (loginMode) {
         authTitle.textContent = 'Вход';
@@ -125,10 +146,30 @@ function closeAuthModal() {
     authModal.style.display = 'none';
 }
 
-if (openLoginBtn) openLoginBtn.addEventListener('click', () => openAuthModal(true));
-if (openRegisterBtn) openRegisterBtn.addEventListener('click', () => openAuthModal(false));
-if (authCloseBtn) authCloseBtn.addEventListener('click', closeAuthModal);
-window.addEventListener('click', (e) => { if (e.target === authModal) closeAuthModal(); });
+function setupAuthEventListeners() {
+    if (openLoginBtn) {
+        console.log('Login button found, adding event listener');
+        openLoginBtn.addEventListener('click', () => {
+            console.log('Login button clicked');
+            openAuthModal(true);
+        });
+    } else {
+        console.log('Login button not found');
+    }
+
+    if (openRegisterBtn) {
+        console.log('Register button found, adding event listener');
+        openRegisterBtn.addEventListener('click', () => {
+            console.log('Register button clicked');
+            openAuthModal(false);
+        });
+    } else {
+        console.log('Register button not found');
+    }
+    
+    if (authCloseBtn) authCloseBtn.addEventListener('click', closeAuthModal);
+    window.addEventListener('click', (e) => { if (e.target === authModal) closeAuthModal(); });
+}
 
 // Delegate switch link clicks because we re-render innerHTML
 document.addEventListener('click', function(e) {
@@ -139,7 +180,9 @@ document.addEventListener('click', function(e) {
 });
 
 // Auth form submit handler
-if (authForm) authForm.addEventListener('submit', async function(e) {
+function setupAuthFormHandler() {
+    if (authForm) {
+        authForm.addEventListener('submit', async function(e) {
     e.preventDefault();
     const username = document.getElementById('authUsername').value.trim();
     const email = document.getElementById('authEmail').value.trim();
@@ -180,7 +223,9 @@ if (authForm) authForm.addEventListener('submit', async function(e) {
         authSubmitBtn.disabled = false;
         authSubmitBtn.innerHTML = isLoginMode ? 'Войти' : 'Зарегистрироваться';
     }
-});
+    });
+    }
+}
 
 // =====================
 // Profile Modal Logic
@@ -399,6 +444,13 @@ function updateUserUI(user) {
 
 // Check auth status on page load
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Content Loaded, initializing...');
+    
+    // Initialize auth modal
+    initializeAuthModal();
+    setupAuthEventListeners();
+    setupAuthFormHandler();
+    
     const token = localStorage.getItem('auth_token');
     const userData = localStorage.getItem('user_data');
     

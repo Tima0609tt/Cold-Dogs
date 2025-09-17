@@ -53,7 +53,8 @@ document.querySelector('.cta-button').addEventListener('click', function(e) {
 });
 
 // Contact form submission
-document.querySelector('.contact-form').addEventListener('submit', function(e) {
+const contactFormEl = document.querySelector('.contact-form');
+if (contactFormEl) contactFormEl.addEventListener('submit', function(e) {
     e.preventDefault();
     
     // Get form data
@@ -87,6 +88,110 @@ document.querySelector('.contact-form').addEventListener('submit', function(e) {
             submitButton.disabled = false;
         }, 2000);
     }, 1500);
+});
+
+// =====================
+// Auth Modal Logic
+// =====================
+const authModal = document.getElementById('authModal');
+const openLoginBtn = document.getElementById('openLoginBtn');
+const openRegisterBtn = document.getElementById('openRegisterBtn');
+const authCloseBtn = document.getElementById('authCloseBtn');
+const authTitle = document.getElementById('authTitle');
+const authForm = document.getElementById('authForm');
+const authSubmitBtn = document.getElementById('authSubmitBtn');
+const switchToLogin = document.getElementById('switchToLogin');
+const authSwitchText = document.getElementById('authSwitchText');
+
+let isLoginMode = false;
+
+function openAuthModal(loginMode = false) {
+    isLoginMode = loginMode;
+    if (!authModal) return;
+    authModal.style.display = 'block';
+    if (loginMode) {
+        authTitle.textContent = 'Вход';
+        authSubmitBtn.textContent = 'Войти';
+        authSwitchText.innerHTML = 'Нет аккаунта? <a href="#" id="switchToLogin">Зарегистрироваться</a>';
+    } else {
+        authTitle.textContent = 'Регистрация';
+        authSubmitBtn.textContent = 'Зарегистрироваться';
+        authSwitchText.innerHTML = 'Уже есть аккаунт? <a href="#" id="switchToLogin">Войти</a>';
+    }
+}
+
+function closeAuthModal() {
+    if (!authModal) return;
+    authModal.style.display = 'none';
+}
+
+if (openLoginBtn) openLoginBtn.addEventListener('click', () => openAuthModal(true));
+if (openRegisterBtn) openRegisterBtn.addEventListener('click', () => openAuthModal(false));
+if (authCloseBtn) authCloseBtn.addEventListener('click', closeAuthModal);
+window.addEventListener('click', (e) => { if (e.target === authModal) closeAuthModal(); });
+
+// Delegate switch link clicks because we re-render innerHTML
+document.addEventListener('click', function(e) {
+    if (e.target && e.target.id === 'switchToLogin') {
+        e.preventDefault();
+        openAuthModal(!isLoginMode);
+    }
+});
+
+// Placeholder submit handler (ready to call backend)
+if (authForm) authForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const username = document.getElementById('authUsername').value.trim();
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
+
+    if (!username || !email || !password) {
+        showNotification('Заполните все поля', 'error');
+        return;
+    }
+
+    try {
+        authSubmitBtn.disabled = true;
+        authSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+
+        // Replace URL when backend is available
+        const endpoint = isLoginMode ? '/api/login' : '/api/register';
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password })
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ message: 'Ошибка сервера' }));
+            throw new Error(err.message || 'Ошибка запроса');
+        }
+
+        const data = await res.json();
+        // Save token or show success
+        if (data && data.token) {
+            localStorage.setItem('auth_token', data.token);
+        }
+        showNotification(isLoginMode ? 'Вход выполнен' : 'Регистрация успешна');
+        closeAuthModal();
+
+        // Update UI status
+        const userStatus = document.getElementById('userStatus');
+        const authButtons = document.getElementById('authButtons');
+        const userNameEl = document.getElementById('userName');
+        const userAvatar = document.getElementById('userAvatar');
+        if (userStatus && authButtons) {
+            userStatus.style.display = 'flex';
+            authButtons.style.display = 'none';
+            userNameEl.textContent = username;
+            userAvatar.textContent = username.charAt(0).toUpperCase();
+        }
+    } catch (error) {
+        showNotification(error.message || 'Не удалось выполнить запрос', 'error');
+    } finally {
+        authSubmitBtn.disabled = false;
+        authSubmitBtn.innerHTML = isLoginMode ? 'Войти' : 'Зарегистрироваться';
+    }
 });
 
 // Notification system

@@ -6,7 +6,7 @@ const cors = require('cors');
 const path = require('path');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const JWT_SECRET = 'your-secret-key-change-in-production';
 
 // Middleware
@@ -15,7 +15,8 @@ app.use(express.json());
 app.use(express.static('.'));
 
 // Initialize SQLite database
-const db = new sqlite3.Database('./users.db', (err) => {
+const dbPath = path.join(__dirname, 'users.db');
+const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error('Error opening database:', err.message);
     } else {

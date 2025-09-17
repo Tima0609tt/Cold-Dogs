@@ -220,8 +220,23 @@ let currentUser = null;
 
 // Open profile modal
 if (openProfileBtn) openProfileBtn.addEventListener('click', async () => {
-    await loadUserProfile();
-    profileModal.style.display = 'block';
+    const userId = localStorage.getItem('user_id');
+    const userData = localStorage.getItem('user_data');
+
+    if (!userId || !userData) {
+        showNotification('Пожалуйста, войдите в систему для доступа к профилю.', 'error');
+        return;
+    }
+
+    try {
+        await loadUserProfile();
+        profileModal.style.display = 'block';
+    } catch (error) {
+        console.error('Ошибка открытия профиля:', error);
+        showNotification('Ошибка загрузки профиля. Попробуйте позже.', 'error');
+        // Открываем модальное окно даже при ошибке загрузки
+        profileModal.style.display = 'block';
+    }
 });
 
 // Close profile modal

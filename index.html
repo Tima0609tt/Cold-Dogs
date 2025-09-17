@@ -235,7 +235,8 @@
             
             <div class="profile-tabs">
                 <button class="tab-btn active" data-tab="profile">Профиль</button>
-                <button class="tab-btn" data-tab="orders">Мои заказы</button>
+                <button class="tab-btn" data-tab="subscriptions">Подписки</button>
+                <button class="tab-btn" data-tab="orders">История покупок</button>
                 <button class="tab-btn" data-tab="settings">Настройки</button>
             </div>
 
@@ -250,9 +251,50 @@
                     </div>
                 </div>
 
+                <!-- Subscriptions Tab -->
+                <div id="subscriptions-tab" class="tab-pane">
+                    <h4>Мои подписки</h4>
+                    <div class="subscriptions-stats">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-crown"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-number" id="activeSubscriptions">0</div>
+                                <div class="stat-label">Активные подписки</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-number" id="totalDays">0</div>
+                                <div class="stat-label">Дней подписки</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="subscriptionsList" class="subscriptions-list">
+                        <div class="empty-subscriptions">
+                            <i class="fas fa-crown"></i>
+                            <p>У вас пока нет активных подписок</p>
+                            <button class="cta-button" onclick="document.querySelector('#products').scrollIntoView({behavior: 'smooth'})">
+                                <i class="fas fa-shopping-cart"></i>
+                                Купить подписку
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Orders Tab -->
                 <div id="orders-tab" class="tab-pane">
-                    <h4>Мои заказы</h4>
+                    <h4>История покупок</h4>
+                    <div class="orders-filters">
+                        <button class="filter-btn active" data-filter="all">Все</button>
+                        <button class="filter-btn" data-filter="pending">В обработке</button>
+                        <button class="filter-btn" data-filter="completed">Выполненные</button>
+                        <button class="filter-btn" data-filter="cancelled">Отмененные</button>
+                    </div>
                     <div id="ordersList" class="orders-list">
                         <div class="empty-orders">
                             <i class="fas fa-shopping-bag"></i>

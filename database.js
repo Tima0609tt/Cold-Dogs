@@ -96,11 +96,15 @@ class BrowserDatabase {
         return new Promise((resolve, reject) => {
             const request = store.add({
                 ...orderData,
-                status: 'pending',
+                status: orderData.status || 'pending',
                 createdAt: new Date().toISOString()
             });
             
-            request.onsuccess = () => resolve({ id: request.result, ...orderData, status: 'pending' });
+            request.onsuccess = () => resolve({ 
+                id: request.result, 
+                ...orderData, 
+                status: orderData.status || 'pending' 
+            });
             request.onerror = () => reject(request.error);
         });
     }

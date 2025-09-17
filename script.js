@@ -97,7 +97,6 @@ let authModal, openLoginBtn, openRegisterBtn, authCloseBtn, authTitle, authForm,
 let isLoginMode = false;
 
 function initializeAuthModal() {
-    console.log('Initializing auth modal elements...');
     authModal = document.getElementById('authModal');
     openLoginBtn = document.getElementById('openLoginBtn');
     openRegisterBtn = document.getElementById('openRegisterBtn');
@@ -107,28 +106,13 @@ function initializeAuthModal() {
     authSubmitBtn = document.getElementById('authSubmitBtn');
     switchToLogin = document.getElementById('switchToLogin');
     authSwitchText = document.getElementById('authSwitchText');
-
-    console.log('Auth elements found:', {
-        authModal: !!authModal,
-        openLoginBtn: !!openLoginBtn,
-        openRegisterBtn: !!openRegisterBtn,
-        authCloseBtn: !!authCloseBtn,
-        authTitle: !!authTitle,
-        authForm: !!authForm,
-        authSubmitBtn: !!authSubmitBtn,
-        switchToLogin: !!switchToLogin,
-        authSwitchText: !!authSwitchText
-    });
 }
 
 function openAuthModal(loginMode = false) {
-    console.log('openAuthModal called with loginMode:', loginMode);
     isLoginMode = loginMode;
     if (!authModal) {
-        console.log('authModal not found!');
         return;
     }
-    console.log('Opening auth modal');
     authModal.style.display = 'block';
     if (loginMode) {
         authTitle.textContent = 'Вход';
@@ -148,23 +132,15 @@ function closeAuthModal() {
 
 function setupAuthEventListeners() {
     if (openLoginBtn) {
-        console.log('Login button found, adding event listener');
         openLoginBtn.addEventListener('click', () => {
-            console.log('Login button clicked');
             openAuthModal(true);
         });
-    } else {
-        console.log('Login button not found');
     }
 
     if (openRegisterBtn) {
-        console.log('Register button found, adding event listener');
         openRegisterBtn.addEventListener('click', () => {
-            console.log('Register button clicked');
             openAuthModal(false);
         });
-    } else {
-        console.log('Register button not found');
     }
     
     if (authCloseBtn) authCloseBtn.addEventListener('click', closeAuthModal);
@@ -198,6 +174,11 @@ function setupAuthFormHandler() {
                 authSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
 
                 // Use browser database instead of API
+                if (!window.browserDB) {
+                    showNotification('База данных не инициализирована. Обновите страницу.', 'error');
+                    return;
+                }
+
                 let result;
                 if (isLoginMode) {
                     result = await window.browserDB.login(email, password);
@@ -276,6 +257,9 @@ function switchTab(tabName) {
     // Load specific tab data
     if (tabName === 'orders') {
         loadUserOrders();
+        setupOrderFilters();
+    } else if (tabName === 'subscriptions') {
+        loadUserSubscriptions();
     }
 }
 
@@ -363,6 +347,180 @@ async function loadUserOrders() {
     }
 }
 
+// Load user subscriptions
+async function loadUserSubscriptions() {
+    try {
+        const userId = localStorage.getItem('user_id');
+        if (!userId) return;
+
+        const result = await window.browserDB.getProfile(parseInt(userId));
+        
+        if (!result.success) {
+            throw new Error(result.message);
+        }
+
+        // Filter orders to get subscriptions (orders with periods)
+        const subscriptions = result.orders.filter(order => 
+            order.period && 
+            !order.period.includes('Одноразовая') && 
+            !order.period.includes('навсегда')
+        );
+
+        // Calculate stats
+        const activeSubscriptions = subscriptions.filter(sub => sub.status === 'completed').length;
+        const totalDays = subscriptions.reduce((total, sub) => {
+            if (sub.period.includes('день')) {
+                const days = parseInt(sub.period.match(/\d+/)?.[0] || '0');
+                return total + days;
+            } else if (sub.period.includes('дней')) {
+                const days = parseInt(sub.period.match(/\d+/)?.[0] || '0');
+                return total + days;
+            }
+            return total;
+        }, 0);
+
+        // Update stats
+        document.getElementById('activeSubscriptions').textContent = activeSubscriptions;
+        document.getElementById('totalDays').textContent = totalDays;
+
+        const subscriptionsList = document.getElementById('subscriptionsList');
+
+        if (subscriptions.length === 0) {
+            subscriptionsList.innerHTML = `
+                <div class="empty-subscriptions">
+                    <i class="fas fa-crown"></i>
+                    <p>У вас пока нет активных подписок</p>
+                    <button class="cta-button" onclick="document.querySelector('#products').scrollIntoView({behavior: 'smooth'})">
+                        <i class="fas fa-shopping-cart"></i>
+                        Купить подписку
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        subscriptionsList.innerHTML = subscriptions.map(subscription => {
+            const isActive = subscription.status === 'completed';
+            const daysLeft = calculateDaysLeft(subscription);
+            const progressPercent = calculateProgress(subscription);
+            
+            return `
+                <div class="subscription-item">
+                    <div class="subscription-header">
+                        <div class="subscription-product">
+                            <i class="fas fa-crown"></i>
+                            ${subscription.productName}
+                        </div>
+                        <div class="subscription-status ${isActive ? 'active' : 'expired'}">
+                            ${isActive ? 'Активна' : 'Истекла'}
+                        </div>
+                    </div>
+                    <div class="subscription-details">
+                        <div class="subscription-detail">
+                            <div class="subscription-detail-label">Цена</div>
+                            <div class="subscription-detail-value">${subscription.price}</div>
+                        </div>
+                        <div class="subscription-detail">
+                            <div class="subscription-detail-label">Период</div>
+                            <div class="subscription-detail-value">${subscription.period}</div>
+                        </div>
+                        <div class="subscription-detail">
+                            <div class="subscription-detail-label">Дата покупки</div>
+                            <div class="subscription-detail-value">${new Date(subscription.createdAt).toLocaleDateString('ru-RU')}</div>
+                        </div>
+                        ${isActive ? `
+                        <div class="subscription-detail">
+                            <div class="subscription-detail-label">Осталось дней</div>
+                            <div class="subscription-detail-value">${daysLeft}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ${isActive ? `
+                    <div class="subscription-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                        </div>
+                        <div class="progress-text">Использовано ${100 - progressPercent}% от подписки</div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        showNotification('Ошибка загрузки подписок', 'error');
+    }
+}
+
+// Helper functions for subscriptions
+function calculateDaysLeft(subscription) {
+    const createdDate = new Date(subscription.createdAt);
+    const now = new Date();
+    const diffTime = Math.abs(now - createdDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (subscription.period.includes('день')) {
+        const totalDays = parseInt(subscription.period.match(/\d+/)?.[0] || '0');
+        return Math.max(0, totalDays - diffDays);
+    } else if (subscription.period.includes('дней')) {
+        const totalDays = parseInt(subscription.period.match(/\d+/)?.[0] || '0');
+        return Math.max(0, totalDays - diffDays);
+    }
+    return 0;
+}
+
+function calculateProgress(subscription) {
+    const createdDate = new Date(subscription.createdAt);
+    const now = new Date();
+    const diffTime = Math.abs(now - createdDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (subscription.period.includes('день')) {
+        const totalDays = parseInt(subscription.period.match(/\d+/)?.[0] || '0');
+        return Math.min(100, (diffDays / totalDays) * 100);
+    } else if (subscription.period.includes('дней')) {
+        const totalDays = parseInt(subscription.period.match(/\d+/)?.[0] || '0');
+        return Math.min(100, (diffDays / totalDays) * 100);
+    }
+    return 0;
+}
+
+// Setup order filters
+function setupOrderFilters() {
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Update active button
+            filterButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Filter orders
+            const filter = btn.dataset.filter;
+            filterOrders(filter);
+        });
+    });
+}
+
+// Filter orders by status
+function filterOrders(filter) {
+    const orderItems = document.querySelectorAll('.order-item');
+    
+    orderItems.forEach(item => {
+        const statusElement = item.querySelector('.order-status');
+        if (!statusElement) return;
+        
+        const status = statusElement.classList.contains('pending') ? 'pending' :
+                     statusElement.classList.contains('completed') ? 'completed' :
+                     statusElement.classList.contains('cancelled') ? 'cancelled' : 'unknown';
+        
+        if (filter === 'all' || status === filter) {
+            item.style.display = 'block';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
 function getStatusText(status) {
     const statusMap = {
         'pending': 'В обработке',
@@ -433,12 +591,9 @@ function updateUserUI(user) {
 
 // Check auth status on page load
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log('DOM Content Loaded, initializing...');
-    
     // Initialize database
     try {
         await window.browserDB.init();
-        console.log('Database initialized');
     } catch (error) {
         console.error('Database initialization failed:', error);
     }
@@ -710,7 +865,7 @@ document.addEventListener('click', async function(e) {
         const priceOptions = productCard.querySelectorAll('.price-option');
         
         // Check if user is logged in
-        const token = localStorage.getItem('auth_token');
+        const userId = localStorage.getItem('user_id');
         
         if (priceOptions.length > 0) {
             // Show price selection
@@ -736,7 +891,8 @@ document.addEventListener('click', async function(e) {
                             userId: parseInt(userId),
                             productName: productName,
                             price: selectedPrice,
-                            period: selectedPeriod
+                            period: selectedPeriod,
+                            status: 'completed' // Auto-complete for demo
                         });
 
                         if (result) {
@@ -764,7 +920,8 @@ document.addEventListener('click', async function(e) {
                         userId: parseInt(userId),
                         productName: productName,
                         price: price,
-                        period: 'Одноразовая покупка'
+                        period: 'Одноразовая покупка',
+                        status: 'completed' // Auto-complete for demo
                     });
 
                     if (result) {

@@ -183,47 +183,46 @@ document.addEventListener('click', function(e) {
 function setupAuthFormHandler() {
     if (authForm) {
         authForm.addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const username = document.getElementById('authUsername').value.trim();
-    const email = document.getElementById('authEmail').value.trim();
-    const password = document.getElementById('authPassword').value;
+            e.preventDefault();
+            const username = document.getElementById('authUsername').value.trim();
+            const email = document.getElementById('authEmail').value.trim();
+            const password = document.getElementById('authPassword').value;
 
-    if (!username || !email || !password) {
-        showNotification('Заполните все поля', 'error');
-        return;
-    }
+            if (!username || !email || !password) {
+                showNotification('Заполните все поля', 'error');
+                return;
+            }
 
-    try {
-        authSubmitBtn.disabled = true;
-        authSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+            try {
+                authSubmitBtn.disabled = true;
+                authSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
 
-        const endpoint = isLoginMode ? '/api/login' : '/api/register';
-        const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, email, password })
+                // Use browser database instead of API
+                let result;
+                if (isLoginMode) {
+                    result = await window.browserDB.login(email, password);
+                } else {
+                    result = await window.browserDB.register(username, email, password);
+                }
+
+                if (result.success) {
+                    // Store user data in localStorage
+                    localStorage.setItem('user_data', JSON.stringify(result.user));
+                    localStorage.setItem('user_id', result.user.id);
+                    
+                    showNotification(result.message);
+                    closeAuthModal();
+                    updateUserUI(result.user);
+                } else {
+                    showNotification(result.message, 'error');
+                }
+            } catch (error) {
+                showNotification(error.message || 'Не удалось выполнить запрос', 'error');
+            } finally {
+                authSubmitBtn.disabled = false;
+                authSubmitBtn.innerHTML = isLoginMode ? 'Войти' : 'Зарегистрироваться';
+            }
         });
-
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({ message: 'Ошибка сервера' }));
-            throw new Error(err.message || 'Ошибка запроса');
-        }
-
-        const data = await res.json();
-        if (data && data.token) {
-            localStorage.setItem('auth_token', data.token);
-            localStorage.setItem('user_data', JSON.stringify(data.user));
-        }
-        showNotification(isLoginMode ? 'Вход выполнен' : 'Регистрация успешна');
-        closeAuthModal();
-        updateUserUI(data.user);
-    } catch (error) {
-        showNotification(error.message || 'Не удалось выполнить запрос', 'error');
-    } finally {
-        authSubmitBtn.disabled = false;
-        authSubmitBtn.innerHTML = isLoginMode ? 'Войти' : 'Зарегистрироваться';
-    }
-    });
     }
 }
 
@@ -283,30 +282,29 @@ function switchTab(tabName) {
 // Load user profile data
 async function loadUserProfile() {
     try {
-        const token = localStorage.getItem('auth_token');
-        if (!token) return;
+        const userId = localStorage.getItem('user_id');
+        if (!userId) return;
 
-        const res = await fetch('/api/profile', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const result = await window.browserDB.getProfile(parseInt(userId));
+        
+        if (!result.success) {
+            throw new Error(result.message);
+        }
 
-        if (!res.ok) throw new Error('Ошибка загрузки профиля');
-
-        const data = await res.json();
-        currentUser = data.user;
+        currentUser = result.user;
 
         // Update profile display
-        document.getElementById('profileUsername').textContent = data.user.username;
-        document.getElementById('profileEmail').textContent = data.user.email;
-        document.getElementById('profileAvatar').textContent = data.user.username.charAt(0).toUpperCase();
-        document.getElementById('profileCreatedAt').textContent = new Date(data.user.created_at).toLocaleDateString('ru-RU');
-        document.getElementById('profileLastLogin').textContent = data.user.last_login ? 
-            new Date(data.user.last_login).toLocaleDateString('ru-RU') : 'Никогда';
-        document.getElementById('profileOrdersCount').textContent = data.orders.length;
+        document.getElementById('profileUsername').textContent = result.user.username;
+        document.getElementById('profileEmail').textContent = result.user.email;
+        document.getElementById('profileAvatar').textContent = result.user.username.charAt(0).toUpperCase();
+        document.getElementById('profileCreatedAt').textContent = new Date(result.user.createdAt).toLocaleDateString('ru-RU');
+        document.getElementById('profileLastLogin').textContent = result.user.lastLogin ? 
+            new Date(result.user.lastLogin).toLocaleDateString('ru-RU') : 'Никогда';
+        document.getElementById('profileOrdersCount').textContent = result.orders.length;
 
         // Update form fields
-        document.getElementById('profileUsernameInput').value = data.user.username;
-        document.getElementById('profileBio').value = data.user.profile_data.bio || '';
+        document.getElementById('profileUsernameInput').value = result.user.username;
+        document.getElementById('profileBio').value = result.user.profileData.bio || '';
 
     } catch (error) {
         showNotification('Ошибка загрузки профиля', 'error');
@@ -316,19 +314,18 @@ async function loadUserProfile() {
 // Load user orders
 async function loadUserOrders() {
     try {
-        const token = localStorage.getItem('auth_token');
-        if (!token) return;
+        const userId = localStorage.getItem('user_id');
+        if (!userId) return;
 
-        const res = await fetch('/api/profile', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const result = await window.browserDB.getProfile(parseInt(userId));
+        
+        if (!result.success) {
+            throw new Error(result.message);
+        }
 
-        if (!res.ok) throw new Error('Ошибка загрузки заказов');
-
-        const data = await res.json();
         const ordersList = document.getElementById('ordersList');
 
-        if (data.orders.length === 0) {
+        if (result.orders.length === 0) {
             ordersList.innerHTML = `
                 <div class="empty-orders">
                     <i class="fas fa-shopping-bag"></i>
@@ -338,10 +335,10 @@ async function loadUserOrders() {
             return;
         }
 
-        ordersList.innerHTML = data.orders.map(order => `
+        ordersList.innerHTML = result.orders.map(order => `
             <div class="order-item">
                 <div class="order-header">
-                    <div class="order-product">${order.product_name}</div>
+                    <div class="order-product">${order.productName}</div>
                     <div class="order-status ${order.status}">${getStatusText(order.status)}</div>
                 </div>
                 <div class="order-details">
@@ -355,7 +352,7 @@ async function loadUserOrders() {
                     </div>
                     <div class="order-detail">
                         <div class="order-detail-label">Дата заказа</div>
-                        <div class="order-detail-value">${new Date(order.created_at).toLocaleDateString('ru-RU')}</div>
+                        <div class="order-detail-value">${new Date(order.createdAt).toLocaleDateString('ru-RU')}</div>
                     </div>
                 </div>
             </div>
@@ -388,24 +385,16 @@ if (profileForm) profileForm.addEventListener('submit', async function(e) {
     }
 
     try {
-        const token = localStorage.getItem('auth_token');
-        if (!token) return;
+        const userId = localStorage.getItem('user_id');
+        if (!userId) return;
 
-        const res = await fetch('/api/profile', {
-            method: 'PUT',
-            headers: { 
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-                username, 
-                profile_data: { bio } 
-            })
+        const result = await window.browserDB.updateProfile(parseInt(userId), {
+            username,
+            profileData: { bio }
         });
 
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({ message: 'Ошибка сервера' }));
-            throw new Error(err.message || 'Ошибка обновления профиля');
+        if (!result.success) {
+            throw new Error(result.message);
         }
 
         showNotification('Профиль обновлен');
@@ -419,8 +408,8 @@ if (profileForm) profileForm.addEventListener('submit', async function(e) {
 
 // Logout
 if (logoutBtn) logoutBtn.addEventListener('click', () => {
-    localStorage.removeItem('auth_token');
     localStorage.removeItem('user_data');
+    localStorage.removeItem('user_id');
     updateUserUI(null);
     profileModal.style.display = 'none';
     showNotification('Вы вышли из системы');
@@ -443,24 +432,32 @@ function updateUserUI(user) {
 }
 
 // Check auth status on page load
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     console.log('DOM Content Loaded, initializing...');
+    
+    // Initialize database
+    try {
+        await window.browserDB.init();
+        console.log('Database initialized');
+    } catch (error) {
+        console.error('Database initialization failed:', error);
+    }
     
     // Initialize auth modal
     initializeAuthModal();
     setupAuthEventListeners();
     setupAuthFormHandler();
     
-    const token = localStorage.getItem('auth_token');
     const userData = localStorage.getItem('user_data');
+    const userId = localStorage.getItem('user_id');
     
-    if (token && userData) {
+    if (userData && userId) {
         try {
             const user = JSON.parse(userData);
             updateUserUI(user);
         } catch (error) {
-            localStorage.removeItem('auth_token');
             localStorage.removeItem('user_data');
+            localStorage.removeItem('user_id');
         }
     }
 });
@@ -731,23 +728,18 @@ document.addEventListener('click', async function(e) {
                 const selectedPrice = priceOptions[optionIndex].querySelector('.price').textContent;
                 const selectedPeriod = priceOptions[optionIndex].querySelector('.price-period').textContent;
                 
-                if (token) {
+                const userId = localStorage.getItem('user_id');
+                if (userId) {
                     // User is logged in - create order
                     try {
-                        const res = await fetch('/api/orders', {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${token}`,
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                product_name: productName,
-                                price: selectedPrice,
-                                period: selectedPeriod
-                            })
+                        const result = await window.browserDB.createOrder({
+                            userId: parseInt(userId),
+                            productName: productName,
+                            price: selectedPrice,
+                            period: selectedPeriod
                         });
 
-                        if (res.ok) {
+                        if (result) {
                             showNotification(`Заказ создан: ${productName} - ${selectedPeriod} за ${selectedPrice}`);
                         } else {
                             throw new Error('Ошибка создания заказа');
@@ -764,23 +756,18 @@ document.addEventListener('click', async function(e) {
             // Single price product
             const price = productCard.querySelector('.price').textContent;
             
-            if (token) {
+            const userId = localStorage.getItem('user_id');
+            if (userId) {
                 // User is logged in - create order
                 try {
-                    const res = await fetch('/api/orders', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            product_name: productName,
-                            price: price,
-                            period: 'Одноразовая покупка'
-                        })
+                    const result = await window.browserDB.createOrder({
+                        userId: parseInt(userId),
+                        productName: productName,
+                        price: price,
+                        period: 'Одноразовая покупка'
                     });
 
-                    if (res.ok) {
+                    if (result) {
                         showNotification(`Заказ создан: ${productName} за ${price}`);
                     } else {
                         throw new Error('Ошибка создания заказа');

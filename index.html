@@ -220,5 +220,66 @@
             </form>
         </div>
     </div>
+
+    <!-- Profile Modal -->
+    <div id="profileModal" class="modal">
+        <div class="modal-content profile-modal-content">
+            <span class="close" id="profileCloseBtn">&times;</span>
+            <div class="profile-header">
+                <h2>Личный кабинет</h2>
+                <div class="user-avatar-large" id="profileAvatar">U</div>
+                <h3 id="profileUsername">Пользователь</h3>
+                <p id="profileEmail">user@example.com</p>
+            </div>
+            
+            <div class="profile-tabs">
+                <button class="tab-btn active" data-tab="profile">Профиль</button>
+                <button class="tab-btn" data-tab="orders">Мои заказы</button>
+                <button class="tab-btn" data-tab="settings">Настройки</button>
+            </div>
+
+            <div class="tab-content">
+                <!-- Profile Tab -->
+                <div id="profile-tab" class="tab-pane active">
+                    <div class="profile-info">
+                        <h4>Информация о профиле</h4>
+                        <p><strong>Дата регистрации:</strong> <span id="profileCreatedAt">-</span></p>
+                        <p><strong>Последний вход:</strong> <span id="profileLastLogin">-</span></p>
+                        <p><strong>Всего заказов:</strong> <span id="profileOrdersCount">0</span></p>
+                    </div>
+                </div>
+
+                <!-- Orders Tab -->
+                <div id="orders-tab" class="tab-pane">
+                    <h4>Мои заказы</h4>
+                    <div id="ordersList" class="orders-list">
+                        <div class="empty-orders">
+                            <i class="fas fa-shopping-bag"></i>
+                            <p>У вас пока нет заказов</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Tab -->
+                <div id="settings-tab" class="tab-pane">
+                    <h4>Настройки профиля</h4>
+                    <form id="profileForm" class="profile-form">
+                        <div class="form-group">
+                            <label for="profileUsernameInput">Имя пользователя</label>
+                            <input id="profileUsernameInput" type="text" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="profileBio">О себе</label>
+                            <textarea id="profileBio" placeholder="Расскажите о себе..."></textarea>
+                        </div>
+                        <button type="submit" class="profile-btn">Сохранить изменения</button>
+                    </form>
+                    <div class="profile-actions">
+                        <button class="profile-btn logout-btn" id="logoutBtn">Выйти</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

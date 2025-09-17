@@ -138,7 +138,7 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// Placeholder submit handler (ready to call backend)
+// Auth form submit handler
 if (authForm) authForm.addEventListener('submit', async function(e) {
     e.preventDefault();
     const username = document.getElementById('authUsername').value.trim();
@@ -154,7 +154,6 @@ if (authForm) authForm.addEventListener('submit', async function(e) {
         authSubmitBtn.disabled = true;
         authSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
 
-        // Replace URL when backend is available
         const endpoint = isLoginMode ? '/api/login' : '/api/register';
         const res = await fetch(endpoint, {
             method: 'POST',
@@ -168,29 +167,249 @@ if (authForm) authForm.addEventListener('submit', async function(e) {
         }
 
         const data = await res.json();
-        // Save token or show success
         if (data && data.token) {
             localStorage.setItem('auth_token', data.token);
+            localStorage.setItem('user_data', JSON.stringify(data.user));
         }
         showNotification(isLoginMode ? 'Вход выполнен' : 'Регистрация успешна');
         closeAuthModal();
-
-        // Update UI status
-        const userStatus = document.getElementById('userStatus');
-        const authButtons = document.getElementById('authButtons');
-        const userNameEl = document.getElementById('userName');
-        const userAvatar = document.getElementById('userAvatar');
-        if (userStatus && authButtons) {
-            userStatus.style.display = 'flex';
-            authButtons.style.display = 'none';
-            userNameEl.textContent = username;
-            userAvatar.textContent = username.charAt(0).toUpperCase();
-        }
+        updateUserUI(data.user);
     } catch (error) {
         showNotification(error.message || 'Не удалось выполнить запрос', 'error');
     } finally {
         authSubmitBtn.disabled = false;
         authSubmitBtn.innerHTML = isLoginMode ? 'Войти' : 'Зарегистрироваться';
+    }
+});
+
+// =====================
+// Profile Modal Logic
+// =====================
+const profileModal = document.getElementById('profileModal');
+const openProfileBtn = document.getElementById('openProfileBtn');
+const profileCloseBtn = document.getElementById('profileCloseBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const profileForm = document.getElementById('profileForm');
+
+let currentUser = null;
+
+// Open profile modal
+if (openProfileBtn) openProfileBtn.addEventListener('click', async () => {
+    await loadUserProfile();
+    profileModal.style.display = 'block';
+});
+
+// Close profile modal
+if (profileCloseBtn) profileCloseBtn.addEventListener('click', () => {
+    profileModal.style.display = 'none';
+});
+
+window.addEventListener('click', (e) => { 
+    if (e.target === profileModal) profileModal.style.display = 'none'; 
+});
+
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tabName = btn.dataset.tab;
+        switchTab(tabName);
+    });
+});
+
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+    // Update tab content
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.remove('active');
+    });
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+
+    // Load specific tab data
+    if (tabName === 'orders') {
+        loadUserOrders();
+    }
+}
+
+// Load user profile data
+async function loadUserProfile() {
+    try {
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+
+        const res = await fetch('/api/profile', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!res.ok) throw new Error('Ошибка загрузки профиля');
+
+        const data = await res.json();
+        currentUser = data.user;
+
+        // Update profile display
+        document.getElementById('profileUsername').textContent = data.user.username;
+        document.getElementById('profileEmail').textContent = data.user.email;
+        document.getElementById('profileAvatar').textContent = data.user.username.charAt(0).toUpperCase();
+        document.getElementById('profileCreatedAt').textContent = new Date(data.user.created_at).toLocaleDateString('ru-RU');
+        document.getElementById('profileLastLogin').textContent = data.user.last_login ? 
+            new Date(data.user.last_login).toLocaleDateString('ru-RU') : 'Никогда';
+        document.getElementById('profileOrdersCount').textContent = data.orders.length;
+
+        // Update form fields
+        document.getElementById('profileUsernameInput').value = data.user.username;
+        document.getElementById('profileBio').value = data.user.profile_data.bio || '';
+
+    } catch (error) {
+        showNotification('Ошибка загрузки профиля', 'error');
+    }
+}
+
+// Load user orders
+async function loadUserOrders() {
+    try {
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+
+        const res = await fetch('/api/profile', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!res.ok) throw new Error('Ошибка загрузки заказов');
+
+        const data = await res.json();
+        const ordersList = document.getElementById('ordersList');
+
+        if (data.orders.length === 0) {
+            ordersList.innerHTML = `
+                <div class="empty-orders">
+                    <i class="fas fa-shopping-bag"></i>
+                    <p>У вас пока нет заказов</p>
+                </div>
+            `;
+            return;
+        }
+
+        ordersList.innerHTML = data.orders.map(order => `
+            <div class="order-item">
+                <div class="order-header">
+                    <div class="order-product">${order.product_name}</div>
+                    <div class="order-status ${order.status}">${getStatusText(order.status)}</div>
+                </div>
+                <div class="order-details">
+                    <div class="order-detail">
+                        <div class="order-detail-label">Цена</div>
+                        <div class="order-detail-value">${order.price}</div>
+                    </div>
+                    <div class="order-detail">
+                        <div class="order-detail-label">Период</div>
+                        <div class="order-detail-value">${order.period}</div>
+                    </div>
+                    <div class="order-detail">
+                        <div class="order-detail-label">Дата заказа</div>
+                        <div class="order-detail-value">${new Date(order.created_at).toLocaleDateString('ru-RU')}</div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        showNotification('Ошибка загрузки заказов', 'error');
+    }
+}
+
+function getStatusText(status) {
+    const statusMap = {
+        'pending': 'В обработке',
+        'completed': 'Выполнен',
+        'cancelled': 'Отменен'
+    };
+    return statusMap[status] || status;
+}
+
+// Profile form submit
+if (profileForm) profileForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('profileUsernameInput').value.trim();
+    const bio = document.getElementById('profileBio').value.trim();
+
+    if (!username) {
+        showNotification('Имя пользователя обязательно', 'error');
+        return;
+    }
+
+    try {
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+
+        const res = await fetch('/api/profile', {
+            method: 'PUT',
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ 
+                username, 
+                profile_data: { bio } 
+            })
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ message: 'Ошибка сервера' }));
+            throw new Error(err.message || 'Ошибка обновления профиля');
+        }
+
+        showNotification('Профиль обновлен');
+        await loadUserProfile();
+        updateUserUI({ username });
+
+    } catch (error) {
+        showNotification(error.message || 'Ошибка обновления профиля', 'error');
+    }
+});
+
+// Logout
+if (logoutBtn) logoutBtn.addEventListener('click', () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_data');
+    updateUserUI(null);
+    profileModal.style.display = 'none';
+    showNotification('Вы вышли из системы');
+});
+
+// Update user UI based on auth status
+function updateUserUI(user) {
+    const userStatus = document.getElementById('userStatus');
+    const authButtons = document.getElementById('authButtons');
+    
+    if (user) {
+        userStatus.style.display = 'flex';
+        authButtons.style.display = 'none';
+        document.getElementById('userName').textContent = user.username;
+        document.getElementById('userAvatar').textContent = user.username.charAt(0).toUpperCase();
+    } else {
+        userStatus.style.display = 'none';
+        authButtons.style.display = 'flex';
+    }
+}
+
+// Check auth status on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const token = localStorage.getItem('auth_token');
+    const userData = localStorage.getItem('user_data');
+    
+    if (token && userData) {
+        try {
+            const user = JSON.parse(userData);
+            updateUserUI(user);
+        } catch (error) {
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_data');
+        }
     }
 });
 
@@ -432,14 +651,17 @@ bounceStyle.textContent = `
 `;
 document.head.appendChild(bounceStyle);
 
-// Simplified Product Button Click Handler
-document.addEventListener('click', function(e) {
+// Product Button Click Handler
+document.addEventListener('click', async function(e) {
     if (e.target.classList.contains('product-button')) {
         e.preventDefault();
         
         const productCard = e.target.closest('.product-card');
         const productName = productCard.querySelector('.product-title').textContent;
         const priceOptions = productCard.querySelectorAll('.price-option');
+        
+        // Check if user is logged in
+        const token = localStorage.getItem('auth_token');
         
         if (priceOptions.length > 0) {
             // Show price selection
@@ -457,13 +679,67 @@ document.addEventListener('click', function(e) {
                 const selectedPrice = priceOptions[optionIndex].querySelector('.price').textContent;
                 const selectedPeriod = priceOptions[optionIndex].querySelector('.price-period').textContent;
                 
-                showNotification(`Вы выбрали: ${productName} - ${selectedPeriod} за ${selectedPrice}. Свяжитесь с нами в Telegram для оформления заказа!`);
+                if (token) {
+                    // User is logged in - create order
+                    try {
+                        const res = await fetch('/api/orders', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                product_name: productName,
+                                price: selectedPrice,
+                                period: selectedPeriod
+                            })
+                        });
+
+                        if (res.ok) {
+                            showNotification(`Заказ создан: ${productName} - ${selectedPeriod} за ${selectedPrice}`);
+                        } else {
+                            throw new Error('Ошибка создания заказа');
+                        }
+                    } catch (error) {
+                        showNotification('Ошибка создания заказа. Попробуйте позже.', 'error');
+                    }
+                } else {
+                    // User not logged in
+                    showNotification(`Вы выбрали: ${productName} - ${selectedPeriod} за ${selectedPrice}. Войдите в систему для оформления заказа!`);
+                }
             }
         } else {
             // Single price product
             const price = productCard.querySelector('.price').textContent;
             
-            showNotification(`Вы выбрали: ${productName} за ${price}. Свяжитесь с нами в Telegram для оформления заказа!`);
+            if (token) {
+                // User is logged in - create order
+                try {
+                    const res = await fetch('/api/orders', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            product_name: productName,
+                            price: price,
+                            period: 'Одноразовая покупка'
+                        })
+                    });
+
+                    if (res.ok) {
+                        showNotification(`Заказ создан: ${productName} за ${price}`);
+                    } else {
+                        throw new Error('Ошибка создания заказа');
+                    }
+                } catch (error) {
+                    showNotification('Ошибка создания заказа. Попробуйте позже.', 'error');
+                }
+            } else {
+                // User not logged in
+                showNotification(`Вы выбрали: ${productName} за ${price}. Войдите в систему для оформления заказа!`);
+            }
         }
     }
 });
